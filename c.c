@@ -174,6 +174,7 @@ typedef struct sTokenInfo {
 	keywordId     keyword;
 	vString*      name;          /* the name of the token */
 	unsigned long lineNumber;    /* line number of tag */
+	unsigned int  colStart, colEnd;/* column offsets of tag, 0-based */
 	fpos_t        filePosition;  /* file position of line containing name */
 } tokenInfo;
 
@@ -485,6 +486,8 @@ static void initToken (tokenInfo* const token)
 	token->type			= TOKEN_NONE;
 	token->keyword		= KEYWORD_NONE;
 	token->lineNumber	= getSourceLineNumber ();
+	token->colStart		= -1U;
+	token->colEnd		= -1U;
 	token->filePosition	= getInputFilePosition ();
 	vStringClear (token->name);
 }
@@ -1149,6 +1152,8 @@ static void makeTag (const tokenInfo *const token,
 		initTagEntry (&e, vStringValue (token->name));
 
 		e.lineNumber	= token->lineNumber;
+		e.colStart		= token->colStart;
+		e.colEnd		= token->colEnd;
 		e.filePosition	= token->filePosition;
 		e.isFileScope	= isFileScope;
 		e.kindName		= tagName (type);
@@ -1472,6 +1477,8 @@ static void readIdentifier (tokenInfo *const token, const int firstChar)
 	boolean first = TRUE;
 
 	initToken (token);
+	/* The -1 is needed because cppGetc does its own unget */
+	token->colStart = getInputColumnNumber() - 1;
 
 	/* Bug #1585745: strangely, C++ destructors allow whitespace between
 	 * the ~ and the class name. */
@@ -1494,6 +1501,7 @@ static void readIdentifier (tokenInfo *const token, const int firstChar)
 	} while (isident (c) || ((isLanguage (Lang_java) || isLanguage (Lang_csharp)) && (isHighChar (c) || c == '.')));
 	vStringTerminate (name);
 	cppUngetc (c);        /* unget non-identifier character */
+	token->colEnd = getInputColumnNumber() - 1;
 
 	analyzeIdentifier (token);
 }
@@ -1621,6 +1629,8 @@ static void copyToken (tokenInfo *const dest, const tokenInfo *const src)
 	dest->keyword      = src->keyword;
 	dest->filePosition = src->filePosition;
 	dest->lineNumber   = src->lineNumber;
+	dest->colStart	   = src->colStart;
+	dest->colEnd	   = src->colEnd;
 	vStringCopy (dest->name, src->name);
 }
 

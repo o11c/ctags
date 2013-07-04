@@ -560,4 +560,12 @@ extern char *readSourceLine (
 	return result;
 }
 
+unsigned int getInputColumnNumber (void)
+{
+    const unsigned char *linestart_pos = (const unsigned char*) vStringValue(File.line);
+    const unsigned char *current_pos = File.currentLine;
+    if (File.ungetch != '\0')
+        current_pos--;
+    return current_pos - linestart_pos;
+}
 /* vi:set tabstop=4 shiftwidth=4: */

@@ -573,8 +573,11 @@ extern void endEtagsFile (const char *const name)
  *  effect on the fileGetc () function.  During copying, any '\' characters
  *  are doubled and a leading '^' or trailing '$' is also quoted. End of line
  *  characters (line feed or carriage return) are dropped.
+ *
+ *  If start and end are within the line, emit match-start and match-end
+ *  marks (\zs and \ze), which is probably VIM-specific.
  */
-static size_t writeSourceLine (FILE *const fp, const char *const line)
+static size_t writeSourceLine (FILE *const fp, const char *const line, unsigned int start, unsigned int end)
 {
 	size_t length = 0;
 	const char *p;
@@ -588,6 +591,17 @@ static size_t writeSourceLine (FILE *const fp, const char *const line)
 
 		if (c == CRETURN  ||  c == NEWLINE)
 			break;
+
+		if ((p - line) == start)
+		{
+			fputs("\\zs", fp);
+			length += 3;
+		}
+		if ((p - line) == end)
+		{
+			fputs("\\ze", fp);
+			length += 3;
+		}
 
 		/*  If character is '\', or a terminal '$', then quote it.
 		 */
@@ -779,7 +793,7 @@ static int writePatternEntry (const tagEntryInfo *const tag)
 	newlineTerminated = (boolean) (line [strlen (line) - 1] == '\n');
 
 	length += fprintf (TagFile.fp, "%c^", searchChar);
-	length += writeSourceLine (TagFile.fp, line);
+	length += writeSourceLine (TagFile.fp, line, tag->colStart, tag->colEnd);
 	length += fprintf (TagFile.fp, "%s%c", newlineTerminated ? "$":"", searchChar);
 
 	return length;
@@ -840,6 +854,8 @@ extern void initTagEntry (tagEntryInfo *const e, const char *const name)
 	memset (e, 0, sizeof (tagEntryInfo));
 	e->lineNumberEntry = (boolean) (Option.locate == EX_LINENUM);
 	e->lineNumber      = getSourceLineNumber ();
+	e->colStart        = -1U;
+	e->colEnd          = -1U;
 	e->language        = getSourceLanguageName ();
 	e->filePosition    = getInputFilePosition ();
 	e->sourceFileName  = getSourceFileTagPath ();
